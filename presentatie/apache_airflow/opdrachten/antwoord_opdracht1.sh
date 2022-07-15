@@ -14,8 +14,8 @@ source .venv/bin/activate
 pip install apache-airflow
 
 # 4) Maak een airflow folder aan en exporteer deze als variabele
-mkdir airflow
-export AIRFLOW_HOME=$(pwd)/airflow
+mkdir airflow_home
+export AIRFLOW_HOME=$(pwd)/airflow_home
 
 # 5) Run airflow lokaal
 airflow standalone
