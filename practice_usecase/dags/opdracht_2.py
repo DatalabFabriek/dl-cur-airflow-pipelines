@@ -30,7 +30,7 @@ def _sanitize_data():
     df = pd.read_json('./data_store/raw/weer.json')
     
     df['date'] = pd.to_datetime(df['date']).dt.date
-    df[["FH", "RH", 'T']] = df[["FH", "RH", 'T']].apply(lambda x: x / 10)
+    df[['FH', 'RH', 'T']] = df[['FH', 'RH', 'T']].apply(lambda x: x / 10)
     df.columns = ['station', 'datum', 'uur', 'windsnelheid', 'neerslag', 'temperatuur']
 
     df.to_csv(

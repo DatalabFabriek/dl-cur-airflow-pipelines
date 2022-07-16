@@ -8,18 +8,23 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.exceptions import AirflowSkipException
 
+# 1
+raw_path = './data_store/raw/weer/{{ds}}.json',
+curated_path = './data_store/curated/weer/{{ds}}.csv'
+
 with DAG(
     dag_id='opdracht_4',
     start_date=pendulum.datetime(2022, 7, 12), 
     schedule_interval='0 8 * * *'
 ) as dag:
 
+    # 2
     def _pick_part_of_day(day):
         
-        if (int(day) % 2) == 0:
-            return "fetch_data_am"
+        if (day % 2) == 0:
+            return 'fetch_data_am'
         else:
-            return "fetch_data_pm"
+            return 'fetch_data_pm'
 
     def _fetch_data(start, end, raw_path):
 
@@ -39,7 +44,7 @@ with DAG(
         df = pd.read_json(raw_path)
         
         df['date'] = pd.to_datetime(df['date']).dt.date
-        df[["FH", "RH", "T"]] = df[["FH", "RH", "T"]].apply(lambda x: x / 10)
+        df[['FH', 'RH', 'T']] = df[['FH', 'RH', 'T']].apply(lambda x: x / 10)
         df.columns = ['station', 'datum', 'uur', 'windsnelheid', 'neerslag', 'temperatuur']
 
         df.to_csv(
@@ -47,14 +52,16 @@ with DAG(
             sep=';', quotechar='"', quoting=csv.QUOTE_NONNUMERIC
         )
 
+    # 3
     def _check_for_wind(curated_path):
         
         df = pd.read_csv(curated_path, sep=';', quotechar='"')
         if df['windsnelheid'].max() <= 6:
-            raise AirflowSkipException("Geen harde wind!")
-        
+            raise AirflowSkipException('Geen harde wind!')
+    
+    # 4
     def _send_message():
-        print("Het was winderig!")
+        print('Het was winderig!')
 
     def _write_to_database(curated_path):
 
@@ -63,49 +70,54 @@ with DAG(
         df.to_sql('weer', conn, if_exists='append', index=False)
         conn.close()
 
-
+    # 5
     pick_part_of_day = BranchPythonOperator(
         task_id='pick_part_of_day',
         python_callable=_pick_part_of_day,
-        op_kwargs={'day': '{{data_interval_start.day}}'}
+        op_kwargs={'day': '{{int(data_interval_start.day)}}'}
     )
 
+    # 6
     fetch_data_am = PythonOperator(
         task_id='fetch_data_am',
         python_callable=_fetch_data,
         op_kwargs={
             'start': '{{ds_nodash}}01',
             'end': '{{ds_nodash}}12',
-            'raw_path': './data_store/raw/weer/{{ds}}.json'
+            'raw_path': raw_path
         }
     )
 
+    # 7
     fetch_data_pm = PythonOperator(
         task_id='fetch_data_pm',
         python_callable=_fetch_data,
         op_kwargs={
             'start': '{{ds_nodash}}13',
             'end': '{{ds_nodash}}24',
-            'raw_path': './data_store/raw/weer/{{ds}}.json'
+            'raw_path': raw_path
         }
     )
 
     sanitize_data = PythonOperator(
         task_id='sanitize_data',
         python_callable=_sanitize_data,
-        trigger_rule='all_done',
+        # 9
+        trigger_rule='none_failed',
         op_kwargs={
-            'raw_path': './data_store/raw/weer/{{ds}}.json',
-            'curated_path': './data_store/curated/weer/{{ds}}.csv'
+            'raw_path': raw_path,
+            'curated_path': curated_path
         }
     )
 
+    # 10
     check_for_wind = PythonOperator(
         task_id='check_for_wind',
         python_callable=_check_for_wind,
-        op_kwargs={'curated_path': './data_store/curated/weer/{{ds}}.csv'}
+        op_kwargs={'curated_path': curated_path}
     )
 
+    # 11
     send_koen_message = PythonOperator(
         task_id='send_koen_message',
         python_callable=_send_message
@@ -115,10 +127,11 @@ with DAG(
         task_id='write_to_database',
         python_callable=_write_to_database,
         op_kwargs={
-            'curated_path': './data_store/curated/weer/{{ds}}.csv'
+            'curated_path': curated_path
         }
     )
 
+    # 12
     pick_part_of_day >> [fetch_data_am, fetch_data_pm] >> sanitize_data 
     sanitize_data >> check_for_wind >> send_koen_message
     sanitize_data >> write_to_database
