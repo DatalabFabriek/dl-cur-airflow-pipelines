@@ -19,8 +19,8 @@ def opdracht_2():
     def fetch_data(raw_path):
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
-            "start": 2022070101,
-            "end": 2022070123,
+            "start": 2023021301,
+            "end": 2023021323,
             "vars": "station_code:date:FH:RH:T",
             "fmt": "json",
             "stns": 310,
