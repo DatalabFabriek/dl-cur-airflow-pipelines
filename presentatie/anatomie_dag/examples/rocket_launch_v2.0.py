@@ -6,7 +6,7 @@ download_rocket_launches DAG mee te definiëren.
 import json
 import pathlib
 
-import airflow.utils.dates
+import pendulum
 import requests
 import requests.exceptions as requests_exceptions
 from airflow import DAG
@@ -53,7 +53,7 @@ with DAG(
 
     # 2: En hier ook...
     get_pictures = PythonOperator(
-        task_id="get_pictures", python_callable=_get_pictures, dag=dag
+        task_id="get_pictures", python_callable=_get_pictures
     )
 
     # 2: En ook hier...

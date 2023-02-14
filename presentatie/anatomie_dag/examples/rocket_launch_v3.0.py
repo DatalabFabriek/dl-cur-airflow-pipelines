@@ -6,7 +6,7 @@ download_rocket_launches DAG mee te definiëren: de taskflow API.
 import json
 import pathlib
 
-import airflow.utils.dates
+import pendulum
 import requests
 import requests.exceptions as requests_exceptions
 from airflow.operators.bash import BashOperator
