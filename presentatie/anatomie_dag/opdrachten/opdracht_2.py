@@ -8,8 +8,8 @@ from airflow.decorators import dag
 from airflow.decorators.python import python_task
 
 
-raw_path = "./data_store/raw/weer/2022-07-01.json"
-curated_path = "./data_store/curated/weer/2022-07-01.csv"
+raw_path = "./data_store/raw/weer/2023-02-13.json"
+curated_path = "./data_store/curated/weer/2023-02-13.csv"
 
 
 @dag(start_date=pendulum.today())
