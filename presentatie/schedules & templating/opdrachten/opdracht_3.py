@@ -2,7 +2,7 @@ import csv
 import json
 import pandas as pd
 import requests
-import pendulum
+import airflow.utils.dates
 from sqlalchemy import create_engine
 from airflow.decorators import dag, python_task
 
@@ -15,15 +15,16 @@ curated_path = f"./data_store/curated/weer/{path_date_template}.csv"
 
 
 @dag(
-    start_date=pendulum.datetime(2023, 2, 8),
-    # 2: Cron schema voor het dagelijks ophalen om 08:00 uur.
+    # 2: Begint precies 7 dagen geleden
+    start_date=airflow.utils.dates.days_ago(7),
+    # 3: Cron schema voor het dagelijks ophalen om 08:00 uur.
     schedule_interval="0 8 * * *",
-    # 3: Deze setting zorgt dat hij ook intervallen in het verleden afspeelt
+    # 4: Deze setting zorgt dat hij ook intervallen in het verleden afspeelt
     catchup=True,
 )
 def opdracht_3():
 
-    # 4: Start en end templates als input voor de API call
+    # 5: Start en end templates als input voor de API call
     @python_task()
     def fetch_data(start, end, raw_path):
         print(start)
@@ -72,17 +73,17 @@ def opdracht_3():
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
-        # 5: if_exists = 'append', zodat records niet overschreven worden
+        # 6: if_exists = 'append', zodat records niet overschreven worden
         df.to_sql(schema="cur", name="weer", con=conn, if_exists="append", index=False)
 
     api_date_template = "{{ data_interval_start.format('YYYYMMDD') }}"
 
-    # 6: Start en end templates als input
+    # 7: Start en end templates als input
     fetched = fetch_data(f"{api_date_template}01", f"{api_date_template}23", raw_path)
     transformed = transform_data(raw_path, curated_path)
     database = write_to_database(curated_path)
 
-    # 7: Operators los van de functie calls gekoppeld voor meer overzicht
+    # 8: Operators los van de functie calls gekoppeld voor meer overzicht
     fetched >> transformed >> database
 
 

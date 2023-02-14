@@ -12,7 +12,7 @@ raw_path = "./data_store/raw/weer/2022-07-01.json"
 curated_path = "./data_store/curated/weer/2022-07-01.csv"
 
 
-@dag(start_date=pendulum.datetime(2023, 2, 15))
+@dag(start_date=pendulum.today())
 def opdracht_2():
 
     @python_task

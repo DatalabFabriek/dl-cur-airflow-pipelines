@@ -5,8 +5,8 @@ download_rocket_launches DAG mee te definiëren: de taskflow API.
 
 import json
 import pathlib
+import pendulum
 
-import airflow.utils.dates
 import requests
 import requests.exceptions as requests_exceptions
 from airflow.operators.bash import BashOperator
@@ -24,7 +24,7 @@ from airflow.decorators import dag
 # automatisch van de functienaam afgeleid.
 @dag(
     description="Download rocket pictures of recently launched rockets.",
-    start_date=airflow.utils.dates.days_ago(14),
+    start_date=pendulum.today()),
     schedule_interval="@daily",
 )
 def download_rocket_launches_v3():

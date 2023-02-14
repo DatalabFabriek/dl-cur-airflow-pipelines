@@ -5,11 +5,11 @@ de download_rocket_launches te definiëren.
 
 import json
 import pathlib
+import pendulum
 
 # 1: Hier importeer je alle relevante packages
 # Zowel voor het definiëren van je DAG ...
 from airflow import DAG
-import airflow.utils.dates
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
@@ -22,7 +22,7 @@ import requests.exceptions as requests_exceptions
 dag = DAG(
     dag_id="download_rocket_launches_v1",
     description="Download rocket pictures of recently launched rockets.",
-    start_date=airflow.utils.dates.days_ago(14),
+    start_date=pendulum.today(),
     schedule_interval="@daily",
 )
 

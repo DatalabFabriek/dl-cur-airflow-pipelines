@@ -19,7 +19,7 @@ from airflow.operators.python import PythonOperator
 with DAG(
     dag_id="download_rocket_launches_v2",
     description="Download rocket pictures of recently launched rockets.",
-    start_date=airflow.utils.dates.days_ago(14),
+    start_date=pendulum.today(),
     schedule_interval="@daily",
 ) as dag:
     # 2: Wat hier moet opvallen is dat de parameter dag=dag is

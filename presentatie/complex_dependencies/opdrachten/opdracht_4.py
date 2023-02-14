@@ -2,7 +2,7 @@ import csv
 import json
 import pandas as pd
 import requests
-import pendulum
+import airflow.utils.dates
 from sqlalchemy import create_engine
 from airflow.decorators import dag, python_task, branch_task
 from airflow.exceptions import AirflowSkipException
@@ -15,7 +15,7 @@ curated_path = f"./data_store/curated/weer/{path_date_template}.csv"
 
 
 @dag(
-    start_date=pendulum.datetime(2023, 2, 8),
+    start_date=airflow.utils.dates.days_ago(7),
     schedule_interval="0 8 * * *",
     catchup=True,
 )
@@ -72,14 +72,14 @@ def opdracht_4():
             quoting=csv.QUOTE_NONNUMERIC,
         )
 
-    # 2: Conditie toegevoegd voor de aanwezigheid van harde wind
+    # 3: Conditie toegevoegd voor de aanwezigheid van harde wind
     @python_task
     def check_for_wind(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
         if df["windsnelheid"].max() <= 6:
             raise AirflowSkipException("Geen harde wind!")
 
-    # 3: Stuur een berichtje wanneer harde wind plaatsvindt
+    # 4: Stuur een berichtje wanneer harde wind plaatsvindt
     @python_task
     def send_message():
         print("Het was winderig!")
@@ -95,9 +95,9 @@ def opdracht_4():
 
     api_date_template = "{{ data_interval_start.format('YYYYMMDD') }}"
 
-    # 4: Tasks voor branching en conditie toegevoegd
+    # 5: Tasks voor branching en conditie toegevoegd
     part_of_day = pick_part_of_day("{{ data_interval_start.day }}")
-    # 5: fetch_data voor zowel am als pm gebruikt met verschillende task_id en inputs
+    # 6: fetch_data voor zowel am als pm gebruikt met verschillende task_id en inputs
     fetched_am = fetch_data.override(task_id="fetch_data_am")(
         f"{api_date_template}01", f"{api_date_template}12", raw_path
     )
