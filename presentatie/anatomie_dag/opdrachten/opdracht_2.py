@@ -8,15 +8,18 @@ from airflow.decorators import dag
 from airflow.decorators.python import python_task
 
 
-@dag(start_date=pendulum.datetime(2023, 2, 5))
+raw_path = "./data_store/raw/weer/2022-07-01.json"
+curated_path = "./data_store/curated/weer/2022-07-01.csv"
+
+
+@dag(start_date=pendulum.datetime(2023, 2, 15))
 def opdracht_2():
 
     @python_task
-    def fetch_data():
-
+    def fetch_data(raw_path):
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
-            "start": 2022070100,
+            "start": 2022070101,
             "end": 2022070123,
             "vars": "station_code:date:FH:RH:T",
             "fmt": "json",
@@ -25,13 +28,12 @@ def opdracht_2():
 
         result = requests.get(url=url, params=params).json()
 
-        with open("data_store/raw/weer.json", "w") as f:
+        with open(raw_path, "w") as f:
             json.dump(result, f, indent=4)
 
     @python_task
-    def clean_and_transform_data():
-
-        df = pd.read_json("./data_store/raw/weer.json")
+    def transform_data(raw_path, curated_path):
+        df = pd.read_json(raw_path)
 
         df["date"] = pd.to_datetime(df["date"]).dt.date
         df[["FH", "RH", "T"]] = df[["FH", "RH", "T"]] / 10
@@ -45,7 +47,7 @@ def opdracht_2():
         ]
 
         df.to_csv(
-            path_or_buf="./data_store/curated/weer.csv",
+            path_or_buf=curated_path,
             index=False,
             sep=";",
             quotechar='"',
@@ -53,16 +55,15 @@ def opdracht_2():
         )
 
     @python_task
-    def write_to_database():
-
-        df = pd.read_csv("./data_store/curated/weer.csv", sep=";", quotechar='"')
+    def write_to_database(curated_path):
+        df = pd.read_csv(curated_path, sep=";", quotechar='"')
 
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
         df.to_sql(schema="cur", name="weer", con=conn, if_exists="replace", index=False)
 
-    fetch_data() >> clean_and_transform_data() >> write_to_database()
+    fetch_data() >> transform_data() >> write_to_database()
 
 
 opdracht_2()

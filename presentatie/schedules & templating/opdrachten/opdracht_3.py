@@ -4,10 +4,10 @@ import pandas as pd
 import requests
 import pendulum
 from sqlalchemy import create_engine
-from airflow.decorators import dag, python_task, branch_task
-from airflow.exceptions import AirflowSkipException
+from airflow.decorators import dag, python_task
 
 
+# 1: File path met datum template
 path_date_template = "{{ data_interval_start.to_date_string() }}"
 
 raw_path = f"./data_store/raw/weer/{path_date_template}.json"
@@ -16,24 +16,18 @@ curated_path = f"./data_store/curated/weer/{path_date_template}.csv"
 
 @dag(
     start_date=pendulum.datetime(2023, 2, 8),
+    # 2: Cron schema voor het dagelijks ophalen om 08:00 uur.
     schedule_interval="0 8 * * *",
+    # 3: Deze setting zorgt dat hij ook intervallen in het verleden afspeelt
     catchup=True,
 )
-def opdracht_4():
+def opdracht_3():
 
-    # 1: Branch task die bepaalt of am of pm data opgehaald moet worden.
-    @branch_task
-    def pick_part_of_day(day):
-        if (int(day) % 2) == 0:
-            return "fetch_data_am"
-        else:
-            return "fetch_data_pm"
-
-    @python_task
+    # 4: Start en end templates als input voor de API call
+    @python_task()
     def fetch_data(start, end, raw_path):
         print(start)
         print(end)
-
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
             "start": start,
@@ -48,8 +42,7 @@ def opdracht_4():
         with open(raw_path, "w") as f:
             json.dump(result, f, indent=4)
 
-    # 2: Trigger rule zodat bij 1 van de 2 succes het transformeren plaatsvindt
-    @python_task(trigger_rule="none_failed")
+    @python_task()
     def transform_data(raw_path, curated_path):
         df = pd.read_json(raw_path)
 
@@ -72,45 +65,25 @@ def opdracht_4():
             quoting=csv.QUOTE_NONNUMERIC,
         )
 
-    # 2: Conditie toegevoegd voor de aanwezigheid van harde wind
-    @python_task
-    def check_for_wind(curated_path):
-        df = pd.read_csv(curated_path, sep=";", quotechar='"')
-        if df["windsnelheid"].max() <= 6:
-            raise AirflowSkipException("Geen harde wind!")
-
-    # 3: Stuur een berichtje wanneer harde wind plaatsvindt
-    @python_task
-    def send_message():
-        print("Het was winderig!")
-
-    @python_task
+    @python_task()
     def write_to_database(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
 
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
+        # 5: if_exists = 'append', zodat records niet overschreven worden
         df.to_sql(schema="cur", name="weer", con=conn, if_exists="append", index=False)
 
     api_date_template = "{{ data_interval_start.format('YYYYMMDD') }}"
 
-    # 4: Tasks voor branching en conditie toegevoegd
-    part_of_day = pick_part_of_day("{{ data_interval_start.day }}")
-    # 5: fetch_data voor zowel am als pm gebruikt met verschillende task_id en inputs
-    fetched_am = fetch_data.override(task_id="fetch_data_am")(
-        f"{api_date_template}01", f"{api_date_template}12", raw_path
-    )
-    fetched_pm = fetch_data.override(task_id="fetch_data_pm")(
-        f"{api_date_template}13", f"{api_date_template}23", raw_path
-    )
+    # 6: Start en end templates als input
+    fetched = fetch_data(f"{api_date_template}01", f"{api_date_template}23", raw_path)
     transformed = transform_data(raw_path, curated_path)
-    wind_check = check_for_wind(curated_path)
     database = write_to_database(curated_path)
 
-    part_of_day >> [fetched_am, fetched_pm] >> transformed
-    transformed >> wind_check >> send_message()
-    transformed >> database
+    # 7: Operators los van de functie calls gekoppeld voor meer overzicht
+    fetched >> transformed >> database
 
 
-opdracht_4()
+opdracht_3()
