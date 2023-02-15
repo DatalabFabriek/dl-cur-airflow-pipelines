@@ -2,20 +2,18 @@ import csv
 import json
 import pandas as pd
 import requests
-import airflow.utils.dates
+import pendulum
 from sqlalchemy import create_engine
 from airflow.decorators import dag, python_task, branch_task
 from airflow.exceptions import AirflowSkipException
 
 
-path_date_template = "{{ data_interval_start.to_date_string() }}"
-
-raw_path = f"./data_store/raw/weer/{path_date_template}.json"
-curated_path = f"./data_store/curated/weer/{path_date_template}.csv"
+raw_path = "./data_store/raw/weer/{{ data_interval_start.to_date_string() }}.json"
+curated_path = "./data_store/curated/weer/{{ data_interval_start.to_date_string() }}.csv"
 
 
 @dag(
-    start_date=airflow.utils.dates.days_ago(7),
+    start_date=pendulum.datetime(2023, 2, 9),
     schedule_interval="0 8 * * *",
     catchup=True,
 )
@@ -31,8 +29,6 @@ def opdracht_4():
 
     @python_task
     def fetch_data(start, end, raw_path):
-        print(start)
-        print(end)
 
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
@@ -91,7 +87,7 @@ def opdracht_4():
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
-        df.to_sql(schema="cur", name="weer", con=conn, if_exists="append", index=False)
+        df.to_sql(schema="cursus", name="weer", con=conn, if_exists="append", index=False)
 
     api_date_template = "{{ data_interval_start.format('YYYYMMDD') }}"
 
@@ -105,12 +101,13 @@ def opdracht_4():
         f"{api_date_template}13", f"{api_date_template}23", raw_path
     )
     transformed = transform_data(raw_path, curated_path)
-    wind_check = check_for_wind(curated_path)
     database = write_to_database(curated_path)
+    wind_check = check_for_wind(curated_path)
+    message = send_message()
 
     part_of_day >> [fetched_am, fetched_pm] >> transformed
-    transformed >> wind_check >> send_message()
-    transformed >> database
+    transformed >> database >> message
+    wind_check >> message
 
 
 opdracht_4()

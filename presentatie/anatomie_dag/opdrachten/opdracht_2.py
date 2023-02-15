@@ -8,11 +8,11 @@ from airflow.decorators import dag
 from airflow.decorators.python import python_task
 
 
-raw_path = "./data_store/raw/weer/2022-07-01.json"
-curated_path = "./data_store/curated/weer/2022-07-01.csv"
+raw_path = "./data_store/raw/weer/2023-02-13.json"
+curated_path = "./data_store/curated/weer/2022-02-13.csv"
 
 
-@dag(start_date=pendulum.today())
+@dag(start_date=pendulum.today(), schedule=None)
 def opdracht_2():
 
     @python_task
@@ -61,9 +61,9 @@ def opdracht_2():
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
-        df.to_sql(schema="cur", name="weer", con=conn, if_exists="replace", index=False)
+        df.to_sql(schema="cursus", name="weer", con=conn, if_exists="replace", index=False)
 
-    fetch_data() >> transform_data() >> write_to_database()
+    fetch_data(raw_path) >> transform_data(raw_path, curated_path) >> write_to_database(raw_path)
 
 
 opdracht_2()

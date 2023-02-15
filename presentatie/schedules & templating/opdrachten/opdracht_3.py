@@ -1,22 +1,20 @@
 import csv
 import json
+import pendulum
 import pandas as pd
 import requests
-import airflow.utils.dates
 from sqlalchemy import create_engine
 from airflow.decorators import dag, python_task
 
 
 # 1: File path met datum template
-path_date_template = "{{ data_interval_start.to_date_string() }}"
-
-raw_path = f"./data_store/raw/weer/{path_date_template}.json"
-curated_path = f"./data_store/curated/weer/{path_date_template}.csv"
+raw_path = "./data_store/raw/weer/{{ data_interval_start.to_date_string() }}.json"
+curated_path = "./data_store/curated/weer/{{ data_interval_start.to_date_string() }}.csv"
 
 
 @dag(
     # 2: Begint precies 7 dagen geleden
-    start_date=airflow.utils.dates.days_ago(7),
+    start_date=pendulum.datetime(2023, 2, 9),
     # 3: Cron schema voor het dagelijks ophalen om 08:00 uur.
     schedule_interval="0 8 * * *",
     # 4: Deze setting zorgt dat hij ook intervallen in het verleden afspeelt
@@ -25,7 +23,7 @@ curated_path = f"./data_store/curated/weer/{path_date_template}.csv"
 def opdracht_3():
 
     # 5: Start en end templates als input voor de API call
-    @python_task()
+    @python_task
     def fetch_data(start, end, raw_path):
         print(start)
         print(end)
@@ -43,7 +41,7 @@ def opdracht_3():
         with open(raw_path, "w") as f:
             json.dump(result, f, indent=4)
 
-    @python_task()
+    @python_task
     def transform_data(raw_path, curated_path):
         df = pd.read_json(raw_path)
 
@@ -66,7 +64,7 @@ def opdracht_3():
             quoting=csv.QUOTE_NONNUMERIC,
         )
 
-    @python_task()
+    @python_task
     def write_to_database(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
 
@@ -74,12 +72,13 @@ def opdracht_3():
         conn = db.connect()
 
         # 6: if_exists = 'append', zodat records niet overschreven worden
-        df.to_sql(schema="cur", name="weer", con=conn, if_exists="append", index=False)
+        df.to_sql(schema="cursus", name="weer", con=conn, if_exists="append", index=False)
 
-    api_date_template = "{{ data_interval_start.format('YYYYMMDD') }}"
+    start_template = "{{ data_interval_start.format('YYYYMMDD') }}01"
+    end_template = "{{ data_interval_start.format('YYYYMMDD') }}23"
 
     # 7: Start en end templates als input
-    fetched = fetch_data(f"{api_date_template}01", f"{api_date_template}23", raw_path)
+    fetched = fetch_data(start_template, end_template, raw_path)
     transformed = transform_data(raw_path, curated_path)
     database = write_to_database(curated_path)
 
