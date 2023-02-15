@@ -9,7 +9,7 @@ from airflow.decorators.python import python_task
 
 
 raw_path = "./data_store/raw/weer/2023-02-13.json"
-curated_path = "./data_store/curated/weer/2022-02-13.csv"
+curated_path = "./data_store/curated/weer/2023-02-13.csv"
 
 
 @dag(start_date=pendulum.today(), schedule=None)
@@ -19,8 +19,8 @@ def opdracht_2():
     def fetch_data(raw_path):
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
-            "start": 2022070101,
-            "end": 2022070123,
+            "start": 2023021301,
+            "end": 2023021323,
             "vars": "station_code:date:FH:RH:T",
             "fmt": "json",
             "stns": 310,
