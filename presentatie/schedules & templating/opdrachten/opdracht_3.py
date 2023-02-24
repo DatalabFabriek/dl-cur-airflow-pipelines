@@ -25,8 +25,7 @@ def opdracht_3():
     # 5: Start en end templates als input voor de API call
     @python_task
     def fetch_data(start, end, raw_path):
-        print(start)
-        print(end)
+
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
             "start": start,
