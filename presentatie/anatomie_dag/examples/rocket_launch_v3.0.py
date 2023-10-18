@@ -14,8 +14,7 @@ from airflow.operators.bash import BashOperator
 # 1: Er wordt geen DAG of PythonOperator object meer geïmporteerd
 # In plaats daarvan worden decorators voor beiden geïmporteerd
 # die functies kunnen ombouwen tot dezelfde objecten.
-from airflow.decorators.python import python_task
-from airflow.decorators import dag
+from airflow.decorators import dag, task
 
 
 # 2: Hier wordt de dag-decorator gebruikt om van de 'download_rocket_launches'
@@ -36,7 +35,7 @@ def download_rocket_launches_v3():
     # 2: Hier wordt de python_task-decorator gebruikt om van de functie
     # get_pictures een PythonOperator te maken. Ook hier wordt de de task-id
     # afgeleid van de de functienaam.
-    @python_task()
+    @task()
     def get_pictures():
         # Ensure directory exists
         pathlib.Path("/tmp/images").mkdir(parents=True, exist_ok=True)
