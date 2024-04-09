@@ -5,17 +5,16 @@ download_rocket_launches DAG mee te definiëren: de taskflow API.
 
 import json
 import pathlib
-import pendulum
 
+import pendulum
 import requests
 import requests.exceptions as requests_exceptions
-from airflow.operators.bash import BashOperator
 
 # 1: Er wordt geen DAG of PythonOperator object meer geïmporteerd
 # In plaats daarvan worden decorators voor beiden geïmporteerd
 # die functies kunnen ombouwen tot dezelfde objecten.
-from airflow.decorators.python import python_task
-from airflow.decorators import dag
+from airflow.decorators import dag, task
+from airflow.operators.bash import BashOperator
 
 
 # 2: Hier wordt de dag-decorator gebruikt om van de 'download_rocket_launches'
@@ -24,34 +23,37 @@ from airflow.decorators import dag
 # automatisch van de functienaam afgeleid.
 @dag(
     description="Download rocket pictures of recently launched rockets.",
-    start_date=pendulum.today()),
+    start_date=pendulum.today(),
     schedule_interval="@daily",
 )
 def download_rocket_launches_v3():
     download_launches = BashOperator(
         task_id="download_launches",
-        bash_command="curl -o /tmp/launches.json -L 'https://ll.thespacedevs.com/2.0.0/launch/upcoming'",  # noqa: E501
+        bash_command="curl -o ./data_store/launches.json -L 'https://ll.thespacedevs.com/2.0.0/launch/upcoming'",  # noqa: E501
+        cwd="/opt/airflow",
+        dag=dag,
     )
 
-    @python_task()
+    @task()
     def get_pictures():
         # Ensure directory exists
-        pathlib.Path("/tmp/images").mkdir(parents=True, exist_ok=True)
+        pathlib.Path("./data_store/images").mkdir(parents=True, exist_ok=True)
 
         number_of_images = 0
         # Download all pictures in launches.json
-        with open("/tmp/launches.json") as f:
+
+        # Download all pictures in launches.json
+        with open("./data_store/launches.json") as f:
             launches = json.load(f)
             image_urls = [launch["image"] for launch in launches["results"]]
             for image_url in image_urls:
                 try:
                     response = requests.get(image_url)
                     image_filename = image_url.split("/")[-1]
-                    target_file = f"/tmp/images/{image_filename}"
+                    target_file = f"./data_store/images/{image_filename}"
                     with open(target_file, "wb") as f:
                         f.write(response.content)
                     print(f"Downloaded {image_url} to {target_file}")
-                    number_of_images += 1
                 except requests_exceptions.MissingSchema:
                     print(f"{image_url} appears to be an invalid URL.")
                 except requests_exceptions.ConnectionError:

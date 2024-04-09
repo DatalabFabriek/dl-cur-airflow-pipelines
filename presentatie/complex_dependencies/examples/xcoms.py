@@ -1,5 +1,5 @@
 import airflow.utils.dates
-from airflow.decorators import dag, python_task
+from airflow.decorators import dag, task
 
 
 @dag(
@@ -7,12 +7,12 @@ from airflow.decorators import dag, python_task
     schedule_interval=None,
 )
 def xcoms():
-    @python_task
+    @task()
     def stap_1():
         bericht = "hoi stap 2, stap 1 hier"
         return bericht
 
-    @python_task
+    @task()
     def stap_2(bericht):
         print(bericht)
 

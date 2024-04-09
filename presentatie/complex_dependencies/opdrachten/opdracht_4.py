@@ -1,33 +1,35 @@
 import csv
 import json
-import pandas as pd
-import requests
-import pendulum
-from sqlalchemy import create_engine
-from airflow.decorators import dag, python_task, branch_task
-from airflow.exceptions import AirflowSkipException
 
+import pandas as pd
+import pendulum
+import requests
+from airflow.decorators import dag, task
+from airflow.exceptions import AirflowSkipException
+from sqlalchemy import create_engine
 
 raw_path = "./data_store/raw/weer/{{ data_interval_start.to_date_string() }}.json"
-curated_path = "./data_store/curated/weer/{{ data_interval_start.to_date_string() }}.csv"
+curated_path = (
+    "./data_store/curated/weer/{{ data_interval_start.to_date_string() }}.csv"
+)
 
 
 @dag(
-    start_date=pendulum.datetime(2023, 2, 9),
+    start_date=pendulum.datetime(2024, 4, 2, tz="Europe/Amsterdam"),
     schedule_interval="0 8 * * *",
     catchup=True,
 )
 def opdracht_4():
 
     # 1: Branch task die bepaalt of am of pm data opgehaald moet worden.
-    @branch_task
+    @task.branch()
     def pick_part_of_day(day):
         if (int(day) % 2) == 0:
             return "fetch_data_am"
         else:
             return "fetch_data_pm"
 
-    @python_task
+    @task()
     def fetch_data(start, end, raw_path):
 
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
@@ -45,7 +47,7 @@ def opdracht_4():
             json.dump(result, f, indent=4)
 
     # 2: Trigger rule zodat bij 1 van de 2 succes het transformeren plaatsvindt
-    @python_task(trigger_rule="none_failed")
+    @task(trigger_rule="none_failed")
     def transform_data(raw_path, curated_path):
         df = pd.read_json(raw_path)
 
@@ -69,25 +71,27 @@ def opdracht_4():
         )
 
     # 3: Conditie toegevoegd voor de aanwezigheid van harde wind
-    @python_task
+    @task()
     def check_for_wind(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
         if df["windsnelheid"].max() <= 6:
             raise AirflowSkipException("Geen harde wind!")
 
     # 4: Stuur een berichtje wanneer harde wind plaatsvindt
-    @python_task
+    @task()
     def send_message():
         print("Het was winderig!")
 
-    @python_task
+    @task()
     def write_to_database(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
 
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
-        df.to_sql(schema="cursus", name="weer", con=conn, if_exists="append", index=False)
+        df.to_sql(
+            schema="cursus", name="weer", con=conn, if_exists="append", index=False
+        )
 
     api_date_template = "{{ data_interval_start.format('YYYYMMDD') }}"
 
@@ -106,8 +110,7 @@ def opdracht_4():
     message = send_message()
 
     part_of_day >> [fetched_am, fetched_pm] >> transformed
-    transformed >> database >> message
-    wind_check >> message
+    transformed >> [wind_check, database] >> message
 
 
 opdracht_4()

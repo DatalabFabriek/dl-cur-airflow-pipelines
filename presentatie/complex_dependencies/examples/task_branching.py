@@ -1,5 +1,5 @@
 import airflow.utils.dates
-from airflow.decorators import dag, python_task
+from airflow.decorators import dag, task
 
 
 @dag(
@@ -7,24 +7,20 @@ from airflow.decorators import dag, python_task
     schedule_interval=None,
 )
 def task_branching():
-    def stap_1a():
-        ...
+    def stap_1a(): ...
 
-    def stap_1b():
-        ...
+    def stap_1b(): ...
 
-    @python_task
+    @task()
     def stap_1(input):
         if input:
             stap_1a()
         else:
             stap_1b()
 
-    def stap_2():
-        ...
+    def stap_2(): ...
 
-    def stap_3():
-        ...
+    def stap_3(): ...
 
     stap_1() >> stap_2() >> stap_3()
 

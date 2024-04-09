@@ -1,26 +1,26 @@
 import csv
 import json
+
 import pandas as pd
-import requests
 import pendulum
-from sqlalchemy import create_engine
+import requests
 from airflow.decorators import dag
-from airflow.decorators.python import python_task
+from airflow.decorators.python import task
+from sqlalchemy import create_engine
+
+raw_path = "./data_store/raw/weer/2024-04-09.json"
+curated_path = "./data_store/curated/weer/2024-04-09.csv"
 
 
-raw_path = "./data_store/raw/weer/2023-02-13.json"
-curated_path = "./data_store/curated/weer/2023-02-13.csv"
-
-
-@dag(start_date=pendulum.today(), schedule=None)
+@dag(start_date=pendulum.datetime(2024, 4, 9, tz="Europe/Amsterdam"), schedule=None)
 def opdracht_2():
 
-    @python_task
+    @task()
     def fetch_data(raw_path):
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
         params = {
-            "start": 2023021301,
-            "end": 2023021323,
+            "start": 2024040901,
+            "end": 2024040923,
             "vars": "station_code:date:FH:RH:T",
             "fmt": "json",
             "stns": 310,
@@ -31,7 +31,7 @@ def opdracht_2():
         with open(raw_path, "w") as f:
             json.dump(result, f, indent=4)
 
-    @python_task
+    @task()
     def transform_data(raw_path, curated_path):
         df = pd.read_json(raw_path)
 
@@ -54,16 +54,22 @@ def opdracht_2():
             quoting=csv.QUOTE_NONNUMERIC,
         )
 
-    @python_task
+    @task()
     def write_to_database(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
 
         db = create_engine("postgresql://airflow:airflow@postgres/datawarehouse")
         conn = db.connect()
 
-        df.to_sql(schema="cursus", name="weer", con=conn, if_exists="replace", index=False)
+        df.to_sql(
+            schema="cursus", name="weer", con=conn, if_exists="replace", index=False
+        )
 
-    fetch_data(raw_path) >> transform_data(raw_path, curated_path) >> write_to_database(raw_path)
+    (
+        fetch_data(raw_path)
+        >> transform_data(raw_path, curated_path)
+        >> write_to_database(raw_path)
+    )
 
 
 opdracht_2()

@@ -5,17 +5,18 @@ de download_rocket_launches te definiëren.
 
 import json
 import pathlib
+
 import pendulum
+
+# ... als voor de logica in je tasks
+import requests
+import requests.exceptions as requests_exceptions
 
 # 1: Hier importeer je alle relevante packages
 # Zowel voor het definiëren van je DAG ...
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-
-# ... als voor de logica in je tasks
-import requests
-import requests.exceptions as requests_exceptions
 
 # 2: Dit object refereert naar je DAG en alle settings/eigenschappen
 # die je eraan wilt geven. Van ids, tot beschrijvingen, tot tijdschema's
@@ -31,7 +32,8 @@ dag = DAG(
 # aan te roepen in een van je tasks.
 download_launches = BashOperator(
     task_id="download_launches",
-    bash_command="curl -o /tmp/launches.json -L 'https://ll.thespacedevs.com/2.0.0/launch/upcoming'",  # noqa: E501
+    bash_command="curl -o ./data_store/launches.json -L 'https://ll.thespacedevs.com/2.0.0/launch/upcoming'",  # noqa: E501
+    cwd="/opt/airflow",
     dag=dag,
 )
 
@@ -41,17 +43,17 @@ download_launches = BashOperator(
 # in elke andere Python functie.
 def _get_pictures():
     # Ensure directory exists
-    pathlib.Path("/tmp/images").mkdir(parents=True, exist_ok=True)
+    pathlib.Path("./data_store/images").mkdir(parents=True, exist_ok=True)
 
     # Download all pictures in launches.json
-    with open("/tmp/launches.json") as f:
+    with open("./data_store/launches.json") as f:
         launches = json.load(f)
         image_urls = [launch["image"] for launch in launches["results"]]
         for image_url in image_urls:
             try:
                 response = requests.get(image_url)
                 image_filename = image_url.split("/")[-1]
-                target_file = f"/tmp/images/{image_filename}"
+                target_file = f"./data_store/images/{image_filename}"
                 with open(target_file, "wb") as f:
                     f.write(response.content)
                 print(f"Downloaded {image_url} to {target_file}")
@@ -71,7 +73,8 @@ get_pictures = PythonOperator(
 # 6: Wederom een BashOperator om de laatste taak te definiëren.
 notify = BashOperator(
     task_id="notify",
-    bash_command='echo "There are now $(ls /tmp/images/ | wc -l) images."',
+    bash_command='echo "There are now $(ls ./data_store/images/ | wc -l) images."',
+    cwd="/opt/airflow",
     dag=dag,
 )
 

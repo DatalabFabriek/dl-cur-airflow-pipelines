@@ -19,7 +19,7 @@ from airflow.operators.python import PythonOperator
 with DAG(
     dag_id="download_rocket_launches_v2",
     description="Download rocket pictures of recently launched rockets.",
-    start_date=pendulum.today(),
+    start_date=pendulum.yesterday(tz="Europe/Amsterdam"),
     schedule_interval="@daily",
 ) as dag:
     # 2: Wat hier moet opvallen is dat de parameter dag=dag is
@@ -27,22 +27,23 @@ with DAG(
     # automatisch aan de BashOperator gekoppeld.
     download_launches = BashOperator(
         task_id="download_launches",
-        bash_command="curl -o /tmp/launches.json -L 'https://ll.thespacedevs.com/2.0.0/launch/upcoming'",  # noqa: E501
+        bash_command="curl -o ./data_store/launches.json -L 'https://ll.thespacedevs.com/2.0.0/launch/upcoming'",  # noqa: E501
+        cwd="/opt/airflow",
     )
 
     def _get_pictures():
         # Ensure directory exists
-        pathlib.Path("/tmp/images").mkdir(parents=True, exist_ok=True)
+        pathlib.Path("./data_store/images").mkdir(parents=True, exist_ok=True)
 
         # Download all pictures in launches.json
-        with open("/tmp/launches.json") as f:
+        with open("./data_store/launches.json") as f:
             launches = json.load(f)
             image_urls = [launch["image"] for launch in launches["results"]]
             for image_url in image_urls:
                 try:
                     response = requests.get(image_url)
                     image_filename = image_url.split("/")[-1]
-                    target_file = f"/tmp/images/{image_filename}"
+                    target_file = f"./data_store/images/{image_filename}"
                     with open(target_file, "wb") as f:
                         f.write(response.content)
                     print(f"Downloaded {image_url} to {target_file}")
@@ -52,14 +53,13 @@ with DAG(
                     print(f"Could not connect to {image_url}.")
 
     # 2: En hier ook...
-    get_pictures = PythonOperator(
-        task_id="get_pictures", python_callable=_get_pictures
-    )
+    get_pictures = PythonOperator(task_id="get_pictures", python_callable=_get_pictures)
 
     # 2: En ook hier...
     notify = BashOperator(
         task_id="notify",
-        bash_command='echo "There are now $(ls /tmp/images/ | wc -l) images."',
+        bash_command='echo "There are now $(ls ./data_store/images/ | wc -l) images."',
+        cwd="/opt/airflow",
     )
 
     download_launches >> get_pictures >> notify

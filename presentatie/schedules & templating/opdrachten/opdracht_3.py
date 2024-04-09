@@ -1,20 +1,22 @@
 import csv
 import json
-import pendulum
-import pandas as pd
-import requests
-from sqlalchemy import create_engine
-from airflow.decorators import dag, python_task
 
+import pandas as pd
+import pendulum
+import requests
+from airflow.decorators import dag, task
+from sqlalchemy import create_engine
 
 # 1: File path met datum template
 raw_path = "./data_store/raw/weer/{{ data_interval_start.to_date_string() }}.json"
-curated_path = "./data_store/curated/weer/{{ data_interval_start.to_date_string() }}.csv"
+curated_path = (
+    "./data_store/curated/weer/{{ data_interval_start.to_date_string() }}.csv"
+)
 
 
 @dag(
     # 2: Begint precies 7 dagen geleden
-    start_date=pendulum.datetime(2023, 2, 9),
+    start_date=pendulum.datetime(2024, 4, 2, tz="Europe/Amsterdam"),
     # 3: Cron schema voor het dagelijks ophalen om 08:00 uur.
     schedule_interval="0 8 * * *",
     # 4: Deze setting zorgt dat hij ook intervallen in het verleden afspeelt
@@ -23,7 +25,7 @@ curated_path = "./data_store/curated/weer/{{ data_interval_start.to_date_string(
 def opdracht_3():
 
     # 5: Start en end templates als input voor de API call
-    @python_task
+    @task()
     def fetch_data(start, end, raw_path):
 
         url = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
@@ -40,7 +42,7 @@ def opdracht_3():
         with open(raw_path, "w") as f:
             json.dump(result, f, indent=4)
 
-    @python_task
+    @task()
     def transform_data(raw_path, curated_path):
         df = pd.read_json(raw_path)
 
@@ -63,7 +65,7 @@ def opdracht_3():
             quoting=csv.QUOTE_NONNUMERIC,
         )
 
-    @python_task
+    @task()
     def write_to_database(curated_path):
         df = pd.read_csv(curated_path, sep=";", quotechar='"')
 
@@ -71,7 +73,9 @@ def opdracht_3():
         conn = db.connect()
 
         # 6: if_exists = 'append', zodat records niet overschreven worden
-        df.to_sql(schema="cursus", name="weer", con=conn, if_exists="append", index=False)
+        df.to_sql(
+            schema="cursus", name="weer", con=conn, if_exists="append", index=False
+        )
 
     start_template = "{{ data_interval_start.format('YYYYMMDD') }}01"
     end_template = "{{ data_interval_start.format('YYYYMMDD') }}23"
