@@ -21,9 +21,9 @@ do
 
     # Create the VM and capture the output
     output=$(az vm create \
-        --resource-group KoensSpeelzaal \
+        --resource-group HarmensSpeelzaal \
         --name airflowcursus-vm$number \
-        --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts:22.04.202301140 \
+        --image airflowcursus-vm5-image-20250221145032 \
         --authentication-type password \
         --admin-username cursist$number \
         --admin-password $password \
@@ -40,7 +40,7 @@ do
     echo "Public IP Address for VM airflowcursus-vm$number is: $publicIpAddress"
 
     # Open the port
-    az vm open-port --resource-group KoensSpeelzaal --name airflowcursus-vm$number --port 3389 > /dev/null
+    az vm open-port --resource-group HarmensSpeelzaal --name airflowcursus-vm$number --port 3389 > /dev/null
     echo "Port 3389 opened for VM airflowcursus-vm$number."
 done
 
